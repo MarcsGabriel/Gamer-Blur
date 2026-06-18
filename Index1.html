@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blur Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg:        #0f0f1a;
+    --surface:   #1a1a2e;
+    --surface2:  #16213e;
+    --accent:    #7c3aed;
+    --accent2:   #a855f7;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --bar-high:  #22c55e;
+    --bar-mid:   #eab308;
+    --bar-low:   #ef4444;
+    --radius:    18px;
+}
+
+body {
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    overflow: hidden;
+}
+
+.logo {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 160px;
+    height: auto;
+    z-index: 10;
+}
+
+/* Subtle grid background */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(124,58,237,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+/* ── Layout wrapper ── */
+.wrapper {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px;
+    width: 100%;
+    max-width: 1300px;
+}
+
+/* ── Vertical timer bar ── */
+.timer-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    width: 80px;
+}
+
+.timer-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}
+
+.bar-track {
+    width: 28px;
+    height: 480px;
+    background: rgba(255,255,255,.06);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.08);
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.4);
+}
+
+.bar-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 14px;
+    transition: height .9s linear, background .5s ease, box-shadow .5s ease;
+    background: var(--bar-high);
+    box-shadow: 0 0 16px rgba(34,197,94,.5);
+}
+
+/* Shimmer on bar */
+.bar-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,.18) 0%, transparent 60%);
+    border-radius: 14px;
+}
+
+.time-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--text);
+    letter-spacing: .05em;
+    transition: color .5s;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.4em;
+    text-align: center;
+}
+
+/* ── Main area ── */
+.main-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+/* Header row */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+}
+
+.game-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    background: linear-gradient(135deg, var(--accent2), #00E47C);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.round-badge {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08);
+    padding: 5px 14px;
+    border-radius: 20px;
+    letter-spacing: .06em;
+}
+
+/* Canvas card */
+.canvas-card {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow:
+        0 0 0 1px rgba(124,58,237,.12),
+        0 24px 64px rgba(0,0,0,.7);
+    background: #ffffff;
+    aspect-ratio: 1920 / 1080;
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Vignette overlay */
+.canvas-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%);
+    pointer-events: none;
+}
+
+/* Blur level indicator inside canvas */
+.blur-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.1);
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--muted);
+    z-index: 2;
+    transition: color .5s;
+}
+
+/* Footer row */
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+#nextBtn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--accent), #00E47C);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, opacity .15s;
+    box-shadow: 0 4px 24px rgba(124,58,237,.4);
+}
+
+#nextBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124,58,237,.55);
+}
+
+#nextBtn:active {
+    transform: translateY(0);
+    opacity: .85;
+}
+
+#nextBtn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Pulse animation when time is low */
+@keyframes pulse-low {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .6; }
+}
+
+.time-low .bar-fill {
+    animation: pulse-low .8s ease-in-out infinite;
+}
+
+.time-low .time-num {
+    color: var(--bar-low);
+}
+
+</style>
+</head>
+<body>
+
+ <img src="Boehringer_Claim_1-line_RGB_White.png" class="logo" alt="Logo">
+
+<div class="wrapper">
+
+    <!-- Timer bar (esquerda) -->
+    <div class="timer-col">
+        <div class="timer-label">Tempo</div>
+        <div class="bar-track">
+            <div class="bar-fill" id="barFill"></div>
+        </div>
+        <div class="time-num" id="timerNum">45</div>
+    </div>
+
+    <!-- Área principal -->
+    <div class="main-col">
+
+        <div class="header">
+            <span class="game-title">BLUR GAME</span>
+            <span class="round-badge" id="roundBadge">RODADA 1</span>
+        </div>
+
+        <div class="canvas-card">
+            <canvas id="imgCanvas" width="1920" height="1080"></canvas>
+            <div class="blur-badge" id="blurBadge">FOCO: 0%</div>
+        </div>
+
+        <div class="footer">
+            <button id="nextBtn">
+                Próxima Rodada
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+const TOTAL_TIME = 45;
+
+const imagens = [
+    "imagens/Microsoft_Edge.png",
+    "imagens/Teams_logo.png"
+];
+
+let indiceImagem = 0;
+let interval;
+let rodada = 1;
+
+const ST = {
+    time: TOTAL_TIME,
+    blurLevel: 75
+};
+
+const timerNum   = document.getElementById("timerNum");
+const barFill    = document.getElementById("barFill");
+const blurBadge  = document.getElementById("blurBadge");
+const roundBadge = document.getElementById("roundBadge");
+const nextBtn    = document.getElementById("nextBtn");
+const timerCol   = document.querySelector(".timer-col");
+
+const canvas = document.getElementById("imgCanvas");
+const ctx    = canvas.getContext("2d");
+const img    = new Image();
+
+img.onload = () => { drawCanvas(); };
+
+/* ── Render ── */
+function drawCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.filter = `blur(${ST.blurLevel / 2}px)`;
+
+    const scale  = Math.min(canvas.width / img.width, canvas.height / img.height);
+    const largura = img.width  * scale;
+    const altura  = img.height * scale;
+    const x = (canvas.width  - largura) / 2;
+    const y = (canvas.height - altura)  / 2;
+
+    ctx.drawImage(img, x, y, largura, altura);
+    ctx.restore();
+}
+
+/* ── Bar & UI update ── */
+function updateUI() {
+    const pct = ST.time / TOTAL_TIME; // 1 → 0
+
+    // Bar height
+    barFill.style.height = (pct * 100) + "%";
+
+    // Bar color + glow
+    let color, glow;
+    if (pct > .5) {
+        // verde → amarelo
+        const t = (pct - .5) / .5;
+        color = lerpColor("#eab308", "#22c55e", t);
+        glow  = lerpColor("rgba(234,179,8,.45)", "rgba(34,197,94,.5)", t);
+    } else {
+        // amarelo → vermelho
+        const t = pct / .5;
+        color = lerpColor("#ef4444", "#eab308", t);
+        glow  = lerpColor("rgba(239,68,68,.55)", "rgba(234,179,8,.45)", t);
+    }
+    barFill.style.background  = color;
+    barFill.style.boxShadow   = `0 0 18px ${glow}`;
+
+    // Number color
+    timerNum.style.color = color;
+
+    // Pulse when low
+    if (ST.time <= 10) {
+        timerCol.classList.add("time-low");
+    } else {
+        timerCol.classList.remove("time-low");
+    }
+
+    // Blur badge
+    const focus = Math.round((1 - ST.blurLevel / 75) * 100);
+    blurBadge.textContent = `FOCO: ${focus}%`;
+    blurBadge.style.color = color;
+}
+
+function updateBlur() {
+    if      (ST.time <= 10) ST.blurLevel = 0;
+    else if (ST.time <= 25) ST.blurLevel = 25;
+    else if (ST.time <= 35) ST.blurLevel = 45;
+    else                    ST.blurLevel = 100;
+    drawCanvas();
+    updateUI();
+}
+
+/* ── Timer ── */
+function startTimer() {
+    clearInterval(interval);
+    interval = setInterval(() => {
+        ST.time--;
+        if (ST.time < 0) ST.time = 0;
+        timerNum.textContent = ST.time;
+        updateBlur();
+        if (ST.time === 0) clearInterval(interval);
+    }, 1000);
+}
+
+/* ── Image loading ── */
+function carregarImagem() {
+    img.src = imagens[indiceImagem];
+    indiceImagem = (indiceImagem + 1) % imagens.length;
+}
+
+/* ── New round ── */
+function proximaRodada() {
+    clearInterval(interval);
+    ST.time      = TOTAL_TIME;
+    ST.blurLevel = 75;
+    timerNum.textContent = ST.time;
+    roundBadge.textContent = `RODADA ${rodada++}`;
+    updateUI();
+    carregarImagem();
+    drawCanvas();
+    startTimer();
+}
+
+nextBtn.addEventListener("click", proximaRodada);
+
+/* ── Color lerp helper ── */
+function lerpColor(a, b, t) {
+    // parse rgb from hex
+    const pa = parseHex(a), pb = parseHex(b);
+    if (!pa || !pb) return a;
+    const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
+    const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
+    const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
+    return `rgb(${r},${g},${bl})`;
+}
+
+function parseHex(hex) {
+    const m = hex.match(/^#([0-9a-f]{6})$/i);
+    if (!m) return null;
+    const v = parseInt(m[1], 16);
+    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+
+// Init
+proximaRodada();
+
+</script>
+</body>
+</html>
