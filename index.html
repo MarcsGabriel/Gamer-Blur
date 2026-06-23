@@ -274,6 +274,90 @@ canvas {
     color: var(--bar-low);
 }
 
+/* ── End game modal ── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,5,10,.75);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--radius);
+    padding: 40px 48px;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0,0,0,.7), 0 0 0 1px rgba(124,58,237,.15);
+    max-width: 420px;
+}
+
+.modal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    background: linear-gradient(135deg, var(--accent2), #00E47C);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 14px;
+}
+
+.modal-text {
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 28px;
+}
+
+#restartBtn {
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--accent), #00E47C);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, opacity .15s;
+    box-shadow: 0 4px 24px rgba(124,58,237,.4);
+}
+
+#restartBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124,58,237,.55);
+}
+
+#startBtn {
+    padding: 16px 40px;
+    background: linear-gradient(135deg, var(--accent), #00E47C);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, opacity .15s;
+    box-shadow: 0 4px 24px rgba(124,58,237,.4);
+}
+
+#startBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124,58,237,.55);
+}
+
 </style>
 </head>
 <body>
@@ -317,13 +401,36 @@ canvas {
 
 </div>
 
+<!-- Start screen -->
+<div class="modal-overlay active" id="startOverlay">
+    <div class="modal-card">
+        <div class="modal-title">BLUR GAME</div>
+        <div class="modal-text">Adivinhe o produto antes que o tempo acabe!</div>
+        <button id="startBtn">Iniciar Jogo</button>
+    </div>
+</div>
+
+<!-- End game modal -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-card">
+        <div class="modal-title">FIM DE JOGO</div>
+        <div class="modal-text">Você completou todas as rodadas!</div>
+        <button id="restartBtn">Jogar de Novo</button>
+    </div>
+</div>
+
 <script>
 
 const TOTAL_TIME = 45;
 
 const imagens = [
-    "imagens/Microsoft_Edge.png",
-    "imagens/Teams_logo.png"
+    "imagens/Equivalan.png",
+    "imagens/Nexgard.png",
+    "imagens/Trayenta.png",
+    "imagens/Jardiance.png",
+    "imagens/ivomec.png",
+    "imagens/One Drive.png"
+    
 ];
 
 let indiceImagem = 0;
@@ -341,6 +448,10 @@ const blurBadge  = document.getElementById("blurBadge");
 const roundBadge = document.getElementById("roundBadge");
 const nextBtn    = document.getElementById("nextBtn");
 const timerCol   = document.querySelector(".timer-col");
+const modalOverlay = document.getElementById("modalOverlay");
+const restartBtn   = document.getElementById("restartBtn");
+const startOverlay = document.getElementById("startOverlay");
+const startBtn      = document.getElementById("startBtn");
 
 const canvas = document.getElementById("imgCanvas");
 const ctx    = canvas.getContext("2d");
@@ -407,7 +518,7 @@ function updateBlur() {
     if      (ST.time <= 10) ST.blurLevel = 0;
     else if (ST.time <= 25) ST.blurLevel = 25;
     else if (ST.time <= 35) ST.blurLevel = 45;
-    else                    ST.blurLevel = 100;
+    else                    ST.blurLevel = 60;
     drawCanvas();
     updateUI();
 }
@@ -427,23 +538,56 @@ function startTimer() {
 /* ── Image loading ── */
 function carregarImagem() {
     img.src = imagens[indiceImagem];
-    indiceImagem = (indiceImagem + 1) % imagens.length;
 }
 
 /* ── New round ── */
 function proximaRodada() {
+    if (indiceImagem >= imagens.length) {
+        mostrarFimDeJogo();
+        return;
+    }
+
     clearInterval(interval);
     ST.time      = TOTAL_TIME;
     ST.blurLevel = 75;
     timerNum.textContent = ST.time;
-    roundBadge.textContent = `RODADA ${rodada++}`;
+    roundBadge.textContent = `RODADA ${rodada++} / ${imagens.length}`;
     updateUI();
     carregarImagem();
+    indiceImagem++;
     drawCanvas();
     startTimer();
+
+    nextBtn.textContent = "";
+    const label = document.createElement("span");
+    label.textContent = (indiceImagem >= imagens.length) ? "Finalizar" : "Próxima Rodada";
+    nextBtn.appendChild(label);
+    nextBtn.insertAdjacentHTML("beforeend", `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+        </svg>`);
+}
+
+function mostrarFimDeJogo() {
+    clearInterval(interval);
+    modalOverlay.classList.add("active");
+}
+
+function reiniciarJogo() {
+    indiceImagem = 0;
+    rodada = 1;
+    modalOverlay.classList.remove("active");
+    proximaRodada();
+}
+
+function iniciarJogo() {
+    startOverlay.classList.remove("active");
+    proximaRodada();
 }
 
 nextBtn.addEventListener("click", proximaRodada);
+restartBtn.addEventListener("click", reiniciarJogo);
+startBtn.addEventListener("click", iniciarJogo);
 
 /* ── Color lerp helper ── */
 function lerpColor(a, b, t) {
@@ -463,8 +607,7 @@ function parseHex(hex) {
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
 }
 
-// Init
-proximaRodada();
+// Init: aguarda clique em "Iniciar Jogo"
 
 </script>
 </body>
